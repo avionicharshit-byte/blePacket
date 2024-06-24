@@ -36,6 +36,7 @@ The program will start scanning for BLE devices and output accelerometer data an
 - The program is set to scan continuously. You may want to implement a mechanism to stop scanning after a certain time or on user input.
 - The movement detection threshold may need adjustment based on your specific use case and the sensitivity of the accelerometer.
 - This program requires root privileges to run due to its use of Bluetooth scanning.
+- This code has been tested only for linux , not for macos.
 
 ## Future Improvements
 
