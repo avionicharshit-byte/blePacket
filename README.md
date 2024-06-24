@@ -19,8 +19,17 @@ The program does the following:
 1. Install the BlueZ development libraries:
 sudo apt-get install libbluetooth-dev
 
-2. Compile the program:
-gcc -o ble_accel_reader ble_accel_reader.c -lbluetooth -lm
+2. Clone this repository:
+git clone https://github.com/avionicharshit-byte/blePacket.git
+cd blePacket
+
+3. Compile the program:
+gcc -o blePacket main.c -lbluetooth -lm
+
+## Usage
+
+Run the program with sudo permissions (required for Bluetooth access):
+sudo ./blePacket
 
 The program will start scanning for BLE devices and output accelerometer data and movement status when it detects the appropriate BLE tag.
 
