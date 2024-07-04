@@ -1,27 +1,22 @@
-Bluetooth Packet Analyzer
-Overview
-This C program is designed to analyze Bluetooth Low Energy (BLE) packets, extracting specific information from Eddystone (Accelerometer) and iBeacon packet formats. It parses hexadecimal packet data and provides insights into device movement (accelerometer data) and signal strength (RSSI).
+**Bluetooth Packet Analyzer**
 
-Features
-Packet Types Supported:
+**Overview:**
+This program analyzes Bluetooth Low Energy (BLE) advertising packets to identify and extract information from Eddystone (Accelerometer) and iBeacon packets. 
+It prints details such as MAC addresses, accelerometer data, RSSI values, and movement status.
 
-Eddystone (Accelerometer): Detects BLE packets indicating device movement using accelerometer data.
-iBeacon: Identifies BLE advertising packets and extracts the received signal strength indicator (RSSI).
-Functionality:
+**Features**
+- Parses BLE advertising packets to determine packet type (Eddystone or iBeacon).
+- Extracts MAC addresses and specific data fields from recognized packet types.
+- Identifies accelerometer readings and determines if the tag is moving based on data values.
 
-Parses and interprets BLE packet data in hexadecimal format.
-Identifies packet type based on predefined header values.
-Extracts and displays MAC addresses, accelerometer readings (x, y, z), and RSSI values.
-Supports both predefined example packets and user-input custom packets for analysis.
-Usage
+**Usage**
 Example Packets:
+- Predefined packets are provided in the main function.
+- These packets simulate BLE advertising data and demonstrate the program's capability to interpret Eddystone and iBeacon packets.
 
-Includes predefined BLE packets for demonstration purposes.
-Demonstrates how the program identifies and interprets different BLE packet types.
-Input Your Own Packet:
-
-Allows users to input a custom BLE packet in hexadecimal format.
-Outputs detailed information about the packet type, MAC address, accelerometer data (if applicable), and RSSI.
+**User Input:**
+- Users can input their own BLE advertising packet during program execution.
+- Enter the packet in hexadecimal format (e.g., 0201061AFF4C00021553594F4F4B534F4349414C444953544500000000E8).
 - For Execution - Try this link - https://replit.com/@avionicharshit/blePacketAnalyzer
 - Code Execution ss
 - ![image](https://github.com/avionicharshit-byte/blePacket/assets/78672319/0c1b0e93-2043-46b0-8fd8-7c466ccdea5d)
