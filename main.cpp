@@ -35,7 +35,7 @@ void parse_mac_address(const char *hex_string, char *mac_address) {
     unsigned int bytes[MAC_ADDRESS_LENGTH];
     
     for (int i = 0; i < MAC_ADDRESS_LENGTH; i++) {
-        sscanf(hex_string + i*2 + 2, "%2x", &bytes[i]);  // +2 to skip "0x"
+        sscanf(hex_string + i*2 + 2, "%2x", &bytes[i]);  
     }
     
     sprintf(mac_address, "%02X:%02X:%02X:%02X:%02X:%02X", 
@@ -44,7 +44,7 @@ void parse_mac_address(const char *hex_string, char *mac_address) {
 
 int8_t parse_rssi(const char *hex_string) {
     unsigned int rssi;
-    sscanf(hex_string + RSSI_INDEX*2 + 2, "%2x", &rssi);  // +2 to skip "0x"
+    sscanf(hex_string + RSSI_INDEX*2 + 2, "%2x", &rssi);  
     return (int8_t)rssi;  // Remove the subtraction
 }
 
