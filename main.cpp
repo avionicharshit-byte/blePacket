@@ -1,97 +1,97 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
-#include <math.h>
+#include <stdint.h>
 
-#define ACC_DATA_INDEX 13
-#define ACC_DATA_LENGTH 6
-#define MAC_ADDRESS_LENGTH 6
-#define RSSI_INDEX 31
-#define MAX_PACKET_LENGTH 100
+// Function to print packet information
+void print_packet_info(const char* packet) {
+    // Skip the "0x" prefix
+    packet += 2;
 
-typedef struct {
-    int16_t x;
-    int16_t y;
-    int16_t z;
-} AccelerometerData;
-
-AccelerometerData parse_accelerometer_data(const char *hex_string) {
-    AccelerometerData acc_data;
-    unsigned int bytes[ACC_DATA_LENGTH];
-    
-    for (int i = 0; i < ACC_DATA_LENGTH; i++) {
-        sscanf(hex_string + ACC_DATA_INDEX*2 + i*2 + 2, "%2x", &bytes[i]);  // +2 to skip "0x"
+    // Convert packet string to byte array
+    int len = strlen(packet) / 2;
+    unsigned char data[len];
+    for (int i = 0; i < len; i++) {
+        sscanf(packet + 2 * i, "%2hhx", &data[i]);
     }
-    
-    acc_data.x = (int16_t)((bytes[1] << 8) | bytes[0]);
-    acc_data.y = (int16_t)((bytes[3] << 8) | bytes[2]);
-    acc_data.z = (int16_t)((bytes[5] << 8) | bytes[4]);
-    
-    return acc_data;
-}
 
-void parse_mac_address(const char *hex_string, char *mac_address) {
-    unsigned int bytes[MAC_ADDRESS_LENGTH];
-    
-    for (int i = 0; i < MAC_ADDRESS_LENGTH; i++) {
-        sscanf(hex_string + i*2 + 2, "%2x", &bytes[i]);  
+    // Check for Eddystone (Accelerometer)
+    if (len >= 18 && data[5] == 0xE1 && data[6] == 0xFF) {
+        // Extract MAC address (last 6 bytes)
+        printf("Packet Type: Eddystone (Accelerometer)\n");
+        printf("MAC Address: ");
+        for (int i = len - 6; i < len; i++) {
+            printf("%02X", data[i]);
+            if (i < len - 1) {
+                printf(":");
+            }
+        }
+        printf("\n");
+
+        // Extract accelerometer data
+        int16_t x = (data[12] << 8) | data[13];
+        int16_t y = (data[14] << 8) | data[15];
+        int16_t z = (data[16] << 8) | data[17];
+
+        printf("Accelerometer X: %d\n", x);
+        printf("Accelerometer Y: %d\n", y);
+        printf("Accelerometer Z: %d\n", z);
+
+        // Determine if the tag is moving
+        if (x != 0 || y != 0 || z != 0) {
+            printf("Tag is moving\n");
+        } else {
+            printf("Tag is stationary\n");
+        }
     }
-    
-    sprintf(mac_address, "%02X:%02X:%02X:%02X:%02X:%02X", 
-            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5]);
-}
+    // Check for iBeacon
+    else if (len >= 30 && data[5] == 0x4C && data[6] == 0x00) {
+        // Extract MAC address (last 6 bytes)
+        printf("Packet Type: iBeacon\n");
+        printf("MAC Address: ");
+        for (int i = len - 6; i < len; i++) {
+            printf("%02X", data[i]);
+            if (i < len - 1) {
+                printf(":");
+            }
+        }
+        printf("\n");
 
-int8_t parse_rssi(const char *hex_string) {
-    unsigned int rssi;
-    sscanf(hex_string + RSSI_INDEX*2 + 2, "%2x", &rssi);  
-    return (int8_t)rssi;  // Remove the subtraction
-}
-
-bool is_moving(AccelerometerData acc_data) {
-    float threshold = 376.78;  // Threshold between the two packet magnitudes
-    float magnitude = sqrt(acc_data.x*acc_data.x + acc_data.y*acc_data.y + acc_data.z*acc_data.z);
-    return magnitude > threshold;
-}
-
-void process_packet(const char *packet) {
-    char mac_address[18];
-    AccelerometerData acc_data = parse_accelerometer_data(packet);
-    parse_mac_address(packet, mac_address);
-    int8_t rssi = parse_rssi(packet);
-    
-    float magnitude = sqrt(acc_data.x*acc_data.x + acc_data.y*acc_data.y + acc_data.z*acc_data.z);
-    
-    printf("Packet: %s\n", packet);
-    printf("MAC Address: %s\n", mac_address);
-    printf("RSSI: %d dBm\n", rssi);
-    printf("Accelerometer Data: X: %d, Y: %d, Z: %d\n", acc_data.x, acc_data.y, acc_data.z);
-    printf("Acceleration Magnitude: %.2f\n", magnitude);
-    printf("Tag status: %s\n\n", is_moving(acc_data) ? "Moving" : "Stationary");
+        // Extract RSSI value (last byte)
+        int8_t rssi = data[len - 1];
+        printf("RSSI: %d\n", rssi);
+    } else {
+        printf("Unknown packet type\n");
+    }
 }
 
 int main() {
-    const char *packet1 = "0x0201060303E1FF1216E1FFA10364FFF4000FFF003772A33F23AC";
-    const char *packet2 = "0x0201060303E1FF1216E1FFA10364FFF60011FF003772A33F23AC";
-    // Example packet from the assignment - 0x0201060303E1FF1216E1FFA10364FFF40011FF033772A33F23AC
-    char user_packet[MAX_PACKET_LENGTH];
+    // Example packets
+    const char* packets[] = {
+        "0x0201060303E1FF1216E1FFA10364FFF4000FFF003772A33F23AC",
+        "0x0201061AFF4C00021553594F4F4B534F4349414C444953544500000000E8",
+        "0x0201060303E1FF1216E1FFA10364FFF60011FF003772A33F23AC"
 
-    printf("Processing Packet 1:\n");
-    process_packet(packet1);
-    
-    printf("Processing Packet 2:\n");
-    process_packet(packet2);
-    
-    printf("Enter your own packet (hexadecimal format, max %d characters):\n", MAX_PACKET_LENGTH - 1);
-    if (fgets(user_packet, sizeof(user_packet), stdin) != NULL) {
-        // Remove newline character if present
-        user_packet[strcspn(user_packet, "\n")] = 0;
-        
-        printf("\nProcessing User's Packet:\n");
-        process_packet(user_packet);
-    } else {
-        printf("Error reading input.\n");
+      // Packets user can give 
+     // 0x0201061AFF4C00021553594F4F4B534F4349414C444953544500000000E8
+    //  0x0201060303E1FF1216E1FFA10364FFF40011FF033772A33F23AC
+   //   0x0201061AFF4C00021553594F4F4B534F4349414C444953544500000000E8
+
+    };
+
+    printf("Processing example packets:\n\n");
+    for (int i = 0; i < sizeof(packets) / sizeof(packets[0]); i++) {
+        print_packet_info(packets[i]);
+        printf("\n");
     }
-    
+
+    // Allow user to input their own packet
+    char user_packet[100];
+    printf("Enter your own packet: ");
+    scanf("%s", user_packet);
+
+    printf("Processing user packet:\n\n");
+    print_packet_info(user_packet);
+
     return 0;
 }
