@@ -1,127 +1,96 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <stdbool.h>
 #include <math.h>
-#include <bluetooth/bluetooth.h>
-#include <bluetooth/hci.h>
-#include <bluetooth/hci_lib.h>
 
-#define BLE_SCAN_TIMEOUT 5 // Scan for 5 seconds
+#define ACC_DATA_INDEX 13
+#define ACC_DATA_LENGTH 6
+#define MAC_ADDRESS_LENGTH 6
+#define RSSI_INDEX 31
+#define MAX_PACKET_LENGTH 100
 
 typedef struct {
     int16_t x;
     int16_t y;
     int16_t z;
-} AccelData;
+} AccelerometerData;
 
-bool parse_accel_data(const uint8_t* data, size_t len, AccelData* accel_data) {
-    if (len < 31 || data[0] != 0x02 || data[1] != 0x01 || data[2] != 0x06 || 
-        data[3] != 0x03 || data[4] != 0x03 || data[5] != 0xE1 || data[6] != 0xFF) {
-        return false;
+AccelerometerData parse_accelerometer_data(const char *hex_string) {
+    AccelerometerData acc_data;
+    unsigned int bytes[ACC_DATA_LENGTH];
+    
+    for (int i = 0; i < ACC_DATA_LENGTH; i++) {
+        sscanf(hex_string + ACC_DATA_INDEX*2 + i*2, "%2x", &bytes[i]);
     }
-
-    accel_data->x = (int16_t)((data[20] << 8) | data[21]);
-    accel_data->y = (int16_t)((data[22] << 8) | data[23]);
-    accel_data->z = (int16_t)((data[24] << 8) | data[25]);
-
-    return true;
+    
+    acc_data.x = (bytes[1] << 8) | bytes[0];
+    acc_data.y = (bytes[3] << 8) | bytes[2];
+    acc_data.z = (bytes[5] << 8) | bytes[4];
+    
+    return acc_data;
 }
 
-bool is_moving(const AccelData* data, const AccelData* prev_data, float threshold) {
-    float delta_x = data->x - prev_data->x;
-    float delta_y = data->y - prev_data->y;
-    float delta_z = data->z - prev_data->z;
+void parse_mac_address(const char *hex_string, char *mac_address) {
+    unsigned int bytes[MAC_ADDRESS_LENGTH];
+    
+    for (int i = 0; i < MAC_ADDRESS_LENGTH; i++) {
+        sscanf(hex_string + i*2, "%2x", &bytes[i]);
+    }
+    
+    sprintf(mac_address, "%02X:%02X:%02X:%02X:%02X:%02X", 
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5]);
+}
 
-    float magnitude = sqrt(delta_x*delta_x + delta_y*delta_y + delta_z*delta_z);
+int8_t parse_rssi(const char *hex_string) {
+    unsigned int rssi;
+    sscanf(hex_string + RSSI_INDEX*2, "%2x", &rssi);
+    return (int8_t)rssi - 256;
+}
 
+bool is_moving(AccelerometerData acc_data) {
+    float threshold = 500.0; // Adjust this threshold as needed
+    float magnitude = sqrt(acc_data.x*acc_data.x + acc_data.y*acc_data.y + acc_data.z*acc_data.z);
     return magnitude > threshold;
 }
 
-void process_data(uint8_t* data, size_t data_len) {
-    static AccelData prev_data = {0};
-    AccelData accel_data;
-
-    if (parse_accel_data(data, data_len, &accel_data)) {
-        printf("Accelerometer data: X=%d, Y=%d, Z=%d\n", accel_data.x, accel_data.y, accel_data.z);
-
-        bool moving = is_moving(&accel_data, &prev_data, 10.0f);
-        printf("Tag is %s\n", moving ? "moving" : "stationary");
-
-        prev_data = accel_data;
-    }
+void process_packet(const char *packet) {
+    char mac_address[18];
+    AccelerometerData acc_data = parse_accelerometer_data(packet);
+    parse_mac_address(packet, mac_address);
+    int8_t rssi = parse_rssi(packet);
+    
+    float magnitude = sqrt(acc_data.x*acc_data.x + acc_data.y*acc_data.y + acc_data.z*acc_data.z);
+    
+    printf("Packet: %s\n", packet);
+    printf("MAC Address: %s\n", mac_address);
+    printf("RSSI: %d dBm\n", rssi);
+    printf("Accelerometer Data: X: %d, Y: %d, Z: %d\n", acc_data.x, acc_data.y, acc_data.z);
+    printf("Acceleration Magnitude: %.2f\n", magnitude);
+    printf("Tag status: %s\n\n", is_moving(acc_data) ? "Moving" : "Stationary");
 }
 
 int main() {
-    int device_id = hci_get_route(NULL);
-    int device_handle = hci_open_dev(device_id);
+    const char *packet1 = "0201060303E1FF1216E1FFA10364FFF4000FFF003772A33F23ACB4";
+    const char *packet2 = "0201060303E1FF1216E1FF010002000300FF003772A33F23ACC8";
+    char user_packet[MAX_PACKET_LENGTH];
 
-    if (device_handle < 0) {
-        perror("Failed to open HCI device");
-        return 1;
+    printf("Processing Packet 1:\n");
+    process_packet(packet1);
+    
+    printf("Processing Packet 2:\n");
+    process_packet(packet2);
+    
+    printf("Enter your own packet (hexadecimal format, max %d characters):\n", MAX_PACKET_LENGTH - 1);
+    if (fgets(user_packet, sizeof(user_packet), stdin) != NULL) {
+        // Remove newline character if present
+        user_packet[strcspn(user_packet, "\n")] = 0;
+        
+        printf("\nProcessing User's Packet:\n");
+        process_packet(user_packet);
+    } else {
+        printf("Error reading input.\n");
     }
-
-    uint8_t scan_type = 0x01;  // Active scanning
-    uint8_t scan_filter = 0x00;  // Accept all advertising packets
-    uint8_t filter_dup = 0x00;  // Do not filter duplicates
-
-    if (hci_le_set_scan_parameters(device_handle, scan_type, htobs(0x0010), htobs(0x0010),
-                                   scan_filter, filter_dup, BLE_SCAN_TIMEOUT) < 0) {
-        perror("Failed to set scan parameters");
-        hci_close_dev(device_handle);
-        return 1;
-    }
-
-    if (hci_le_set_scan_enable(device_handle, 0x01, filter_dup, BLE_SCAN_TIMEOUT) < 0) {
-        perror("Failed to enable scanning");
-        hci_close_dev(device_handle);
-        return 1;
-    }
-
-    printf("Scanning for BLE devices...\n");
-
-    struct hci_filter old_filter, new_filter;
-    socklen_t old_filter_len = sizeof(old_filter);
-    getsockopt(device_handle, SOL_HCI, HCI_FILTER, &old_filter, &old_filter_len);
-
-    hci_filter_clear(&new_filter);
-    hci_filter_set_ptype(HCI_EVENT_PKT, &new_filter);
-    hci_filter_set_event(EVT_LE_META_EVENT, &new_filter);
-    setsockopt(device_handle, SOL_HCI, HCI_FILTER, &new_filter, sizeof(new_filter));
-
-    uint8_t buf[HCI_MAX_EVENT_SIZE];
-    evt_le_meta_event* meta_event;
-    le_advertising_info* info;
-
-    while (1) {
-        int len = read(device_handle, buf, sizeof(buf));
-
-        if (len < 0) {
-            perror("Failed to read from HCI device");
-            break;
-        }
-
-        if (buf[1] != EVT_LE_META_EVENT) {
-            continue;
-        }
-
-        meta_event = (evt_le_meta_event*)(buf + HCI_EVENT_HDR_SIZE);
-
-        if (meta_event->subevent != EVT_LE_ADVERTISING_REPORT) {
-            continue;
-        }
-
-        info = (le_advertising_info*)(meta_event->data + 1);
-        process_data(info->data, info->length);
-    }
-
-    setsockopt(device_handle, SOL_HCI, HCI_FILTER, &old_filter, sizeof(old_filter));
-
-    if (hci_le_set_scan_enable(device_handle, 0x00, filter_dup, BLE_SCAN_TIMEOUT) < 0) {
-        perror("Disable scanning failed");
-    }
-
-    hci_close_dev(device_handle);
+    
     return 0;
 }
