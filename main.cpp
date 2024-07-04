@@ -83,7 +83,7 @@ int main() {
     
     printf("Enter your own packet (hexadecimal format, max %d characters):\n", MAX_PACKET_LENGTH - 1);
     if (fgets(user_packet, sizeof(user_packet), stdin) != NULL) {
-        // Remove newline character if present
+       
         user_packet[strcspn(user_packet, "\n")] = 0;
         
         printf("\nProcessing User's Packet:\n");
