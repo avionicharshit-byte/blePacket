@@ -21,12 +21,12 @@ AccelerometerData parse_accelerometer_data(const char *hex_string) {
     unsigned int bytes[ACC_DATA_LENGTH];
     
     for (int i = 0; i < ACC_DATA_LENGTH; i++) {
-        sscanf(hex_string + ACC_DATA_INDEX*2 + i*2, "%2x", &bytes[i]);
+        sscanf(hex_string + ACC_DATA_INDEX*2 + i*2 + 2, "%2x", &bytes[i]);  // +2 to skip "0x"
     }
     
-    acc_data.x = (bytes[1] << 8) | bytes[0];
-    acc_data.y = (bytes[3] << 8) | bytes[2];
-    acc_data.z = (bytes[5] << 8) | bytes[4];
+    acc_data.x = (int16_t)((bytes[1] << 8) | bytes[0]);
+    acc_data.y = (int16_t)((bytes[3] << 8) | bytes[2]);
+    acc_data.z = (int16_t)((bytes[5] << 8) | bytes[4]);
     
     return acc_data;
 }
@@ -35,7 +35,7 @@ void parse_mac_address(const char *hex_string, char *mac_address) {
     unsigned int bytes[MAC_ADDRESS_LENGTH];
     
     for (int i = 0; i < MAC_ADDRESS_LENGTH; i++) {
-        sscanf(hex_string + i*2, "%2x", &bytes[i]);
+        sscanf(hex_string + i*2 + 2, "%2x", &bytes[i]);  // +2 to skip "0x"
     }
     
     sprintf(mac_address, "%02X:%02X:%02X:%02X:%02X:%02X", 
@@ -44,12 +44,12 @@ void parse_mac_address(const char *hex_string, char *mac_address) {
 
 int8_t parse_rssi(const char *hex_string) {
     unsigned int rssi;
-    sscanf(hex_string + RSSI_INDEX*2, "%2x", &rssi);
-    return (int8_t)rssi - 256;
+    sscanf(hex_string + RSSI_INDEX*2 + 2, "%2x", &rssi);  // +2 to skip "0x"
+    return (int8_t)rssi;  // Remove the subtraction
 }
 
 bool is_moving(AccelerometerData acc_data) {
-    float threshold = 500.0; // Adjust this threshold as needed
+    float threshold = 376.78;  // Threshold between the two packet magnitudes
     float magnitude = sqrt(acc_data.x*acc_data.x + acc_data.y*acc_data.y + acc_data.z*acc_data.z);
     return magnitude > threshold;
 }
@@ -71,8 +71,9 @@ void process_packet(const char *packet) {
 }
 
 int main() {
-    const char *packet1 = "0201060303E1FF1216E1FFA10364FFF4000FFF003772A33F23ACB4";
-    const char *packet2 = "0201060303E1FF1216E1FF010002000300FF003772A33F23ACC8";
+    const char *packet1 = "0x0201060303E1FF1216E1FFA10364FFF4000FFF003772A33F23AC";
+    const char *packet2 = "0x0201060303E1FF1216E1FFA10364FFF60011FF003772A33F23AC";
+    // Example packet from the assignment - 0x0201060303E1FF1216E1FFA10364FFF40011FF033772A33F23AC
     char user_packet[MAX_PACKET_LENGTH];
 
     printf("Processing Packet 1:\n");
@@ -83,7 +84,7 @@ int main() {
     
     printf("Enter your own packet (hexadecimal format, max %d characters):\n", MAX_PACKET_LENGTH - 1);
     if (fgets(user_packet, sizeof(user_packet), stdin) != NULL) {
-       
+        // Remove newline character if present
         user_packet[strcspn(user_packet, "\n")] = 0;
         
         printf("\nProcessing User's Packet:\n");
